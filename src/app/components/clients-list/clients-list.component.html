@@ -1,0 +1,87 @@
+<div class="clients-table-wrapper">
+  <div class="clients-toolbar">
+    <div class="clients-search">
+      <i class="fas fa-search"></i>
+      <input 
+        id="clients-search" 
+        type="search" 
+        placeholder="Buscar por nombre, cédula o celular…" 
+        autocomplete="off"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()">
+    </div>
+  </div>
+
+  <div class="table-container" *ngIf="filteredClientes.length > 0; else noClientes">
+    <table>
+      <thead>
+        <tr>
+          <th>Foto</th>
+          <th>Nombre</th>
+          <th>Cédula</th>
+          <th>Celular</th>
+          <th>Tipo Pago</th>
+          <th>Vencimiento</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let cliente of filteredClientes">
+          <td>
+            <div class="client-photo-placeholder">
+              <i class="fas fa-user"></i>
+            </div>
+          </td>
+          <td><strong>{{ cliente.nombre }}</strong></td>
+          <td>{{ cliente.cedula }}</td>
+          <td>{{ cliente.celular }}</td>
+          <td>{{ cliente.tipoPago }}</td>
+          <td>
+            <span class="status-badge" [class]="getStatusClass(getDiasRestantes(cliente.fechaVencimiento))">
+              {{ getStatusText(getDiasRestantes(cliente.fechaVencimiento)) }}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn-icon edit" (click)="openEditModal(cliente)" title="Editar">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-icon delete" (click)="openDeleteModal(cliente)" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #noClientes>
+    <div class="no-data">
+      <i class="fas fa-inbox"></i>
+      <p>No hay clientes registrados</p>
+    </div>
+  </ng-template>
+</div>
+
+<!-- MODAL DE EDICIÓN -->
+<div class="modal-overlay" [class.active]="showEditModal" (click)="closeEditModal()">
+  <app-edit-client-modal 
+    *ngIf="selectedCliente"
+    [cliente]="selectedCliente"
+    (clienteActualizado)="onClienteActualizado()"
+    (closeModal)="closeEditModal()"
+    (click)="$event.stopPropagation()">
+  </app-edit-client-modal>
+</div>
+
+<!-- MODAL DE ELIMINACIÓN -->
+<div class="modal-overlay" [class.active]="showDeleteModal" (click)="closeDeleteModal()">
+  <app-delete-client-modal 
+    *ngIf="selectedCliente"
+    [cliente]="selectedCliente"
+    (clienteEliminado)="onClienteEliminado()"
+    (closeModal)="closeDeleteModal()"
+    (click)="$event.stopPropagation()">
+  </app-delete-client-modal>
+</div>

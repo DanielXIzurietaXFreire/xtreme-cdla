@@ -1,0 +1,62 @@
+<div class="app-container">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo-section">
+      <img src="assets/logo.png" alt="Xtreme Gym Logo" class="logo-img">
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-wrapper">
+    <main class="main-content">
+      <section class="screen active login-screen">
+        <div class="login-container">
+          <!-- LADO IZQUIERDO: IMAGEN (oculto en móvil) -->
+          <div class="login-image">
+            <img src="assets/portada.jpg" alt="Foto del gimnasio">
+          </div>
+
+          <!-- LADO DERECHO: FORMULARIO -->
+          <div class="login-form-wrapper">
+            <form class="login-form" (ngSubmit)="onLogin($event)">
+              <h2>Ingresar</h2>
+              <p>Sistema de control Xtreme Gym</p>
+
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input 
+                  type="email" 
+                  id="email" 
+                  placeholder="xtreme@email.com" 
+                  [(ngModel)]="email"
+                  name="email"
+                  [disabled]="isLoading">
+              </div>
+
+              <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input 
+                  type="password" 
+                  id="password" 
+                  placeholder="Contraseña" 
+                  [(ngModel)]="password"
+                  name="password"
+                  [disabled]="isLoading">
+              </div>
+
+              <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+                <i class="fas fa-arrow-right"></i>
+                {{ isLoading ? 'Cargando...' : 'Ingresar' }}
+              </button>
+
+              <div *ngIf="errorMessage" class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ errorMessage }}
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>

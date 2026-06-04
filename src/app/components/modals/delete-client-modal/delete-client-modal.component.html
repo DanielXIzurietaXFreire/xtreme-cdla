@@ -1,0 +1,50 @@
+<div class="modal delete-modal">
+  <div class="modal-header">
+    <h2>Confirmar eliminación</h2>
+    <button class="close-btn" (click)="onClose()">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  <div class="modal-body">
+    <div class="delete-warning">
+      <i class="fas fa-exclamation-triangle"></i>
+      <p>¿Estás seguro de que deseas eliminar este cliente?</p>
+    </div>
+
+    <div class="client-info">
+      <div class="client-photo-placeholder">
+        <i class="fas fa-user"></i>
+      </div>
+
+      <div class="client-details">
+        <div class="detail">
+          <label>Nombre:</label>
+          <strong>{{ cliente.nombre }}</strong>
+        </div>
+        <div class="detail">
+          <label>Cédula:</label>
+          <strong>{{ cliente.cedula }}</strong>
+        </div>
+        <div class="detail">
+          <label>Celular:</label>
+          <strong>{{ cliente.celular }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="warning-text">
+      <i class="fas fa-info-circle"></i>
+      <span>Esta acción no se puede deshacer</span>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
+      Cancelar
+    </button>
+    <button class="btn btn-danger" (click)="onConfirmDelete()" [disabled]="isSubmitting">
+      {{ isSubmitting ? 'Eliminando...' : 'Eliminar' }}
+    </button>
+  </div>
+</div>

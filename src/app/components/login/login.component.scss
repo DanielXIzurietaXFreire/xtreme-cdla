@@ -1,0 +1,204 @@
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.header {
+  background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-dark-2) 100%);
+  border-bottom: 2px solid var(--accent);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  z-index: 1000;
+  flex-shrink: 0; /* evita que el header se comprima */
+}
+
+.logo-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0; /* eliminamos margen inferior para mejor alineación */
+  background: transparent;
+}
+
+.logo-img {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .logo-img {
+    max-width: 150px;
+  }
+}
+
+.main-wrapper {
+  display: flex;
+  flex: 1;
+  position: relative;
+  overflow-y: auto; /* permite scroll general si es necesario */
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.screen {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+
+  &.active {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Pantalla de login corregida */
+.login-screen {
+  background: linear-gradient(135deg, rgba(10, 10, 10, 0.4) 0%, rgba(18, 18, 23, 0.4) 100%),
+              url('https://images.unsplash.com/photo-1517964100233-9a6b3b5a176e?q=80&w=1600&auto=format&fit=crop&ixlib=rb-4.0.3') center / cover fixed;
+  flex-direction: column;
+  justify-content: flex-start;  /* cambiamos de 'center' a 'flex-start' para permitir scroll */
+  align-items: center;
+  overflow-y: auto;             /* scroll interno */
+}
+
+.login-container {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  width: 100%;
+  min-height: 100%;            /* en lugar de height:100% */
+}
+
+.login-image {
+  flex: 1;
+  background: linear-gradient(135deg, #1a1a1f 0%, #2a2a2f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 300px;           /* altura mínima para que se vea bien en pantallas grandes */
+}
+
+.login-image img {
+  width: 100%;
+  height: auto;
+  max-height: 80vh;            /* la imagen no ocupará más del 80% de la altura visible */
+  object-fit: contain;
+  display: block;
+}
+
+@media (max-width: 1024px) {
+  .login-image {
+    display: none;             /* ocultar imagen en tablets y móviles */
+  }
+}
+
+.login-form-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 60px;
+  background: linear-gradient(135deg, rgba(10, 10, 10, 0.7) 0%, rgba(18, 18, 23, 0.85) 100%);
+}
+
+@media (max-width: 768px) {
+  .login-form-wrapper {
+    padding: 30px 20px;
+  }
+}
+
+.login-form {
+  width: 100%;
+  max-width: 360px;
+
+  h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    color: var(--text-light);
+  }
+
+  p {
+    font-size: 13px;
+    color: var(--muted-light);
+    margin-bottom: 28px;
+  }
+}
+
+.error-message {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(230, 57, 70, 0.15);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  i {
+    flex-shrink: 0;
+  }
+}
+
+/* Asegurar que los botones tengan estilo coherente (si no están definidos globalmente) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 40px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.btn-primary {
+  background: var(--accent, #e63946);
+  border: none;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c1121f;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--muted-light, #666);
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

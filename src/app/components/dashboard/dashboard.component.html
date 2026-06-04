@@ -1,0 +1,87 @@
+<div class="app-container">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo-section">
+      <img src="assets/logo.png" alt="Xtreme Gym Logo" class="logo-img" 
+        onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 100%22%3E%3Crect fill=%22%23e63946%22 width=%22200%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2224%22 fill=%22white%22 font-weight=%22bold%22%3EXTREME GYM%3C/text%3E%3C/svg%3E'">
+    </div>
+
+    <div class="header-right">
+      <button class="ham-btn" (click)="toggleSidebar()" title="Menú">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <div class="main-wrapper">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" [class.visible]="sidebarOpen">
+      <div class="user-card">
+        <div class="user-avatar">AG</div>
+        <div>
+          <div class="user-name">Admin Gym</div>
+          <div class="user-role">Recepción</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button 
+          class="nav-item"
+          [class.active]="currentTab === 'register'"
+          (click)="selectTab('register')">
+          <i class="fas fa-user-plus"></i>
+          Registrar cliente
+        </button>
+        <button 
+          class="nav-item"
+          [class.active]="currentTab === 'clients'"
+          (click)="selectTab('clients')">
+          <i class="fas fa-users"></i>
+          Ver clientes
+        </button>
+        <button 
+          class="nav-item"
+          [class.active]="currentTab === 'face-recognition'"
+          (click)="selectTab('face-recognition')">
+          <i class="fas fa-face-smile"></i>
+          Escáner de rostro
+        </button>
+      </nav>
+
+      <button class="logout-btn" (click)="logout()">
+        <i class="fas fa-sign-out-alt"></i>
+        Cerrar sesión
+      </button>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <section class="screen active dashboard-screen">
+        <div class="dashboard-content">
+          <div class="dashboard-body">
+            <h2 class="section-title">{{ getTabTitle() }}</h2>
+
+            <!-- REGISTER CLIENT TAB -->
+            <div class="section" [class.active]="currentTab === 'register'">
+              <app-register-client></app-register-client>
+            </div>
+
+            <!-- CLIENTS LIST TAB -->
+            <div class="section" [class.active]="currentTab === 'clients'">
+              <app-clients-list></app-clients-list>
+            </div>
+
+            <!-- FACE RECOGNITION TAB -->
+            <div class="section" [class.active]="currentTab === 'face-recognition'">
+              <!-- El escáner se abre en una ventana aparte (ver openScannerInNewWindow()). -->
+              <div class="section-empty">
+                <p>El escáner se abrirá en otra ventana.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>

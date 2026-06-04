@@ -1,0 +1,88 @@
+<div class="face-recognition-container">
+  <div class="camera-section">
+    <div class="video-wrapper">
+      <video 
+        #videoElement
+        autoplay 
+        muted 
+        playsinline
+        [class.active]="cameraActive">
+      </video>
+      <div class="camera-placeholder" *ngIf="!cameraActive">
+        <i class="fas fa-video"></i>
+        <p>Cámara no activa</p>
+      </div>
+      <div class="camera-overlay" *ngIf="cameraActive">
+        <div class="face-detector">
+          <i class="fas fa-face-smile"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="camera-controls">
+      <button class="btn btn-primary" (click)="startCamera()" [disabled]="isLoading || !modelsLoaded">
+        <i class="fas" [class.fa-play]="!cameraActive" [class.fa-stop]="cameraActive"></i>
+        {{ cameraActive ? 'Detener cámara' : 'Iniciar cámara' }}
+      </button>
+      <button class="btn btn-secondary" (click)="captureAndRecognize()" [disabled]="!cameraActive || isRecognizing">
+        <i class="fas fa-search"></i>
+        {{ isRecognizing ? 'Buscando...' : 'Capturar y buscar' }}
+      </button>
+    </div>
+
+    <div class="status-message">
+      <i class="fas fa-info-circle"></i>
+      {{ statusMessage }}
+    </div>
+  </div>
+
+  <!-- RESULTADO DE RECONOCIMIENTO -->
+  <div class="result-section" *ngIf="recognitionResult">
+    <div class="result-card">
+      <div class="result-header">
+        <h3>✓ Cliente Identificado</h3>
+        <button class="close-btn" (click)="clearResult()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="result-content">
+        <div class="client-photo-container client-photo-placeholder">
+          <i class="fas fa-user"></i>
+          <div class="confidence-badge">
+            {{ (recognitionResult.confianza * 100).toFixed(0) }}%
+          </div>
+        </div>
+
+        <div class="client-details">
+          <div class="detail">
+            <label>Nombre:</label>
+            <strong>{{ recognitionResult.cliente.nombre }}</strong>
+          </div>
+          <div class="detail">
+            <label>Cédula:</label>
+            <strong>{{ recognitionResult.cliente.cedula }}</strong>
+          </div>
+          <div class="detail">
+            <label>Tipo de pago:</label>
+            <strong>{{ recognitionResult.cliente.tipoPago }}</strong>
+          </div>
+          <div class="detail">
+            <label>Vencimiento:</label>
+            <strong [class]="getStatusClass(getDiasRestantes(recognitionResult.cliente.fechaVencimiento))">
+              {{ getStatusText(getDiasRestantes(recognitionResult.cliente.fechaVencimiento)) }}
+            </strong>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+
+  <!-- MENSAJE SIN RESULTADO -->
+  <div class="no-result" *ngIf="cameraActive && !recognitionResult && !isRecognizing">
+    <i class="fas fa-search"></i>
+    <p>Esperando identificación de rostro...</p>
+  </div>
+</div>

@@ -1,0 +1,51 @@
+<div class="photo-capture">
+  <div class="photo-frame" (click)="initCamera()" tabindex="0" role="button" aria-label="Capturar o subir foto del cliente">
+    <video 
+      #video 
+      class="photo-video" 
+      autoplay 
+      muted 
+      playsinline
+      [style.display]="cameraActive ? 'block' : 'none'">
+    </video>
+    <img 
+      class="photo-image" 
+      [src]="fotoCapturadaLocal" 
+      alt="Vista previa de foto del cliente"
+      [style.display]="hasFoto && !cameraActive ? 'block' : 'none'">
+    <div class="photo-placeholder" [class.hidden]="cameraActive || hasFoto">
+      <i class="fas fa-camera"></i>
+      <strong>Capturar / Subir</strong>
+      <span>Sin foto - haz clic para capturar</span>
+    </div>
+    <div class="photo-frame-overlay" *ngIf="hasFoto && !cameraActive">
+      <i class="fas fa-pen"></i>
+      <span>Haz clic para cambiar</span>
+    </div>
+  </div>
+
+  <input 
+    type="file" 
+    #fileInput 
+    class="photo-file-input" 
+    accept="image/*"
+    (change)="onFileSelected($event)"
+    style="display: none;">
+
+  <div class="photo-actions">
+    <button type="button" class="photo-action-btn" (click)="initCamera()">
+      <i class="fas fa-camera"></i> Cámara
+    </button>
+    <button type="button" class="photo-action-btn" (click)="capturePhoto()" [disabled]="!cameraActive">
+      <i class="fas fa-camera-retro"></i> Tomar
+    </button>
+    <button type="button" class="photo-action-btn" (click)="triggerFileInput()">
+      <i class="fas fa-image"></i> Subir
+    </button>
+    <button type="button" class="photo-action-btn" (click)="reset()" [disabled]="!hasFoto">
+      <i class="fas fa-rotate-left"></i> Limpiar
+    </button>
+  </div>
+
+  <p class="photo-status">{{ statusMessage }}</p>
+</div>
