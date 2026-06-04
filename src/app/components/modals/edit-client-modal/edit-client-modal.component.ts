@@ -23,6 +23,7 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   isSubmitting: boolean = false;
   fotoCapturada: string = '';
   faceDescriptor: number[] | null = null;
+  fechaVencimiento: string = '';
   private tipoPagoSubscription: Subscription | null = null;
 
   constructor(
@@ -41,6 +42,7 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
         tipoPago: this.cliente.tipoPago,
         fechaPago: this.cliente.fechaPago
       });
+      this.calcularFechaVencimiento();
     }
 
     this.listenTipoPagoChanges();
@@ -61,14 +63,30 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
 
   private listenTipoPagoChanges(): void {
     const tipoPagoControl = this.form.get('tipoPago');
-    if (!tipoPagoControl) {
+    const fechaPagoControl = this.form.get('fechaPago');
+    
+    if (!tipoPagoControl || !fechaPagoControl) {
       return;
     }
 
     this.tipoPagoSubscription = tipoPagoControl.valueChanges.subscribe(() => {
       const today = this.formatDate(new Date());
       this.form.patchValue({ fechaPago: today }, { emitEvent: false });
+      this.calcularFechaVencimiento();
     });
+
+    fechaPagoControl.valueChanges.subscribe(() => {
+      this.calcularFechaVencimiento();
+    });
+  }
+
+  private calcularFechaVencimiento(): void {
+    const fechaPago = this.form.get('fechaPago')?.value;
+    const tipoPago = this.form.get('tipoPago')?.value;
+    
+    if (fechaPago && tipoPago) {
+      this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
+    }
   }
 
   private formatDate(date: Date): string {

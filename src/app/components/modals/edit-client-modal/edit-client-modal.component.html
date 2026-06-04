@@ -29,12 +29,20 @@
         <select formControlName="tipoPago" [disabled]="isSubmitting">
           <option value="diario">Diario</option>
           <option value="mensual">Mensual</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="semestral">Semestral</option>
+          <option value="anual">Anual</option>
         </select>
       </div>
 
       <div class="form-group">
         <label>Fecha de pago</label>
         <input type="date" formControlName="fechaPago" [disabled]="isSubmitting">
+      </div>
+
+      <div class="form-group">
+        <label>Fecha de vencimiento</label>
+        <input type="date" [value]="fechaVencimiento" disabled>
       </div>
 
       <div class="form-group">

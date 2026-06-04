@@ -258,12 +258,26 @@ export class ClienteService {
     return new Date().toISOString().split('T')[0];
   }
 
-  calcularVencimiento(fechaPago: string, tipoPago: 'diario' | 'mensual'): string {
+  calcularVencimiento(fechaPago: string, tipoPago: string): string {
     const fecha = new Date(fechaPago);
-    if (tipoPago === 'diario') {
-      fecha.setDate(fecha.getDate() + 1);
-    } else if (tipoPago === 'mensual') {
-      fecha.setDate(fecha.getDate() + 30);
+    switch (tipoPago.toLowerCase()) {
+      case 'diario':
+        fecha.setDate(fecha.getDate() + 1);
+        break;
+      case 'mensual':
+        fecha.setDate(fecha.getDate() + 30);
+        break;
+      case 'trimestral':
+        fecha.setDate(fecha.getDate() + 90);
+        break;
+      case 'semestral':
+        fecha.setDate(fecha.getDate() + 180);
+        break;
+      case 'anual':
+        fecha.setDate(fecha.getDate() + 365);
+        break;
+      default:
+        fecha.setDate(fecha.getDate() + 1);
     }
     return fecha.toISOString().split('T')[0];
   }

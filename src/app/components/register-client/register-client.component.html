@@ -43,6 +43,9 @@
         <select id="tipo-pago" formControlName="tipoPago">
           <option value="diario">Diario</option>
           <option value="mensual">Mensual</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="semestral">Semestral</option>
+          <option value="anual">Anual</option>
         </select>
       </div>
     </div>
@@ -54,6 +57,14 @@
           type="date" 
           id="fecha-pago" 
           formControlName="fechaPago">
+      </div>
+      <div class="form-group">
+        <label for="fecha-vencimiento">Fecha de vencimiento</label>
+        <input 
+          type="date" 
+          id="fecha-vencimiento" 
+          [value]="fechaVencimiento" 
+          disabled>
       </div>
     </div>
 

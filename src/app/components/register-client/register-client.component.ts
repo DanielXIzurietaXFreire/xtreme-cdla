@@ -17,6 +17,7 @@ export class RegisterClientComponent implements OnInit {
   form!: FormGroup;
   isSubmitting: boolean = false;
   fotoCapturada: string = '';
+  fechaVencimiento: string = '';
 
   @ViewChild(CameraPhotoComponent) cameraComponent!: CameraPhotoComponent;
 
@@ -39,6 +40,7 @@ export class RegisterClientComponent implements OnInit {
         cedulaControl.setErrors(Object.keys(errors).length ? errors : null);
       }
     });
+    this.listenTipoPagoChanges();
   }
 
   private initForm(): void {
@@ -68,6 +70,35 @@ export class RegisterClientComponent implements OnInit {
   private setTodayDate(): void {
     const today = this.clienteService.obtenerFechaActual();
     this.form.patchValue({ fechaPago: today });
+    this.calcularFechaVencimiento();
+  }
+
+  private listenTipoPagoChanges(): void {
+    const tipoPagoControl = this.form.get('tipoPago');
+    const fechaPagoControl = this.form.get('fechaPago');
+    
+    if (!tipoPagoControl || !fechaPagoControl) {
+      return;
+    }
+
+    tipoPagoControl.valueChanges.subscribe(() => {
+      const today = this.clienteService.obtenerFechaActual();
+      this.form.patchValue({ fechaPago: today }, { emitEvent: false });
+      this.calcularFechaVencimiento();
+    });
+
+    fechaPagoControl.valueChanges.subscribe(() => {
+      this.calcularFechaVencimiento();
+    });
+  }
+
+  private calcularFechaVencimiento(): void {
+    const fechaPago = this.form.get('fechaPago')?.value;
+    const tipoPago = this.form.get('tipoPago')?.value;
+    
+    if (fechaPago && tipoPago) {
+      this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
+    }
   }
 
   private isValidFaceDescriptor(descriptor: number[] | null): descriptor is number[] {
