@@ -51,6 +51,9 @@
           context="edit" 
           (fotoCapturada)="onFotoCapturada($event)">
         </app-camera-photo>
+        <div *ngIf="fotoUrl" class="photo-url-label">
+          URL de foto: <span>{{ fotoUrl }}</span>
+        </div>
       </div>
     </form>
   </div>

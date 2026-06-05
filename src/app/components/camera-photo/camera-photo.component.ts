@@ -17,6 +17,7 @@ export class CameraPhotoComponent {
 
   cameraActive: boolean = false;
   fotoCapturadaLocal: string = '';
+  selectedPhotoFile: File | null = null;
   mediaStream: MediaStream | null = null;
   statusMessage: string = 'Sin foto - haz clic para capturar o subir.';
 
@@ -57,6 +58,7 @@ export class CameraPhotoComponent {
     if (ctx) {
       ctx.drawImage(video, 0, 0);
       this.fotoCapturadaLocal = canvas.toDataURL('image/jpeg');
+      this.selectedPhotoFile = this.dataURLToFile(this.fotoCapturadaLocal, 'captura.jpg');
       this.fotoCapturada.emit(this.fotoCapturadaLocal);
       this.stopCamera();
       this.statusMessage = 'Foto capturada correctamente ✓';
@@ -79,6 +81,7 @@ export class CameraPhotoComponent {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
+    this.selectedPhotoFile = file;
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
@@ -92,11 +95,30 @@ export class CameraPhotoComponent {
 
   reset(): void {
     this.fotoCapturadaLocal = '';
+    this.selectedPhotoFile = null;
     this.statusMessage = 'Sin foto - haz clic para capturar o subir.';
     this.stopCamera();
     if (this.fileInput) {
       this.fileInput.nativeElement.value = '';
     }
+  }
+
+  getSelectedPhotoFile(): File | null {
+    return this.selectedPhotoFile;
+  }
+
+  private dataURLToFile(dataurl: string, filename: string): File {
+    const arr = dataurl.split(',');
+    const match = /:(.*?);/.exec(arr[0]);
+    const mime = match ? match[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      const codePoint = bstr.codePointAt(n);
+      u8arr[n] = codePoint ?? 0;
+    }
+    return new File([u8arr], filename, { type: mime });
   }
 
   get hasFoto(): boolean {

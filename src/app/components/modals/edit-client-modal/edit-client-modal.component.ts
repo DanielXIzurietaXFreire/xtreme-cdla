@@ -22,8 +22,9 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   isSubmitting: boolean = false;
   fotoCapturada: string = '';
-  faceDescriptor: number[] | null = null;
+  fotoUrl: string = '';
   fechaVencimiento: string = '';
+  faceDescriptor: number[] | null = null;
   private tipoPagoSubscription: Subscription | null = null;
 
   constructor(
@@ -42,7 +43,8 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
         tipoPago: this.cliente.tipoPago,
         fechaPago: this.cliente.fechaPago
       });
-      this.calcularFechaVencimiento();
+      this.fechaVencimiento = this.cliente.fechaVencimiento || this.clienteService.calcularVencimiento(this.cliente.fechaPago, this.cliente.tipoPago);
+      this.fotoUrl = this.cliente.fotoUrl || '';
     }
 
     this.listenTipoPagoChanges();
@@ -64,7 +66,6 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   private listenTipoPagoChanges(): void {
     const tipoPagoControl = this.form.get('tipoPago');
     const fechaPagoControl = this.form.get('fechaPago');
-    
     if (!tipoPagoControl || !fechaPagoControl) {
       return;
     }
@@ -80,17 +81,17 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
     });
   }
 
+  private formatDate(date: Date): string {
+    return date.toISOString().split('T')[0];
+  }
+
   private calcularFechaVencimiento(): void {
     const fechaPago = this.form.get('fechaPago')?.value;
     const tipoPago = this.form.get('tipoPago')?.value;
-    
+
     if (fechaPago && tipoPago) {
       this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
     }
-  }
-
-  private formatDate(date: Date): string {
-    return date.toISOString().split('T')[0];
   }
 
   async onSubmit(): Promise<void> {
@@ -126,6 +127,7 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
 
   async onFotoCapturada(foto: string): Promise<void> {
     this.fotoCapturada = foto;
+    this.fotoUrl = '';
     this.faceDescriptor = await this.faceRecognitionService.imageToDescriptor(foto);
   }
 

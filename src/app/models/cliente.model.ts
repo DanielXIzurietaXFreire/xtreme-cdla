@@ -9,6 +9,7 @@ export interface Cliente {
   fechaVencimiento: string;
   historialEntradas: string[]; // dates
   faceDescriptor?: number[] | null; // face-api.js descriptor
+  fotoUrl?: string;
   user_id?: string;
 }
 

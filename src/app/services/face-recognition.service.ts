@@ -160,6 +160,25 @@ export class FaceRecognitionService {
     }
   }
 
+  async imageUrlToDescriptor(url: string): Promise<number[] | null> {
+    if (!this.faceapi || !this.modelsLoadedSubject.value) return null;
+
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = url;
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => reject(new Error('No se pudo cargar la imagen desde la URL'));
+      });
+
+      return await this.generateDescriptor(img);
+    } catch (error) {
+      console.error('Error convertiendo URL de imagen a descriptor:', error);
+      return null;
+    }
+  }
+
   async waitForModelsLoaded(timeoutMs: number = 10000): Promise<boolean> {
     if (this.modelsLoadedSubject.value) {
       return true;

@@ -4,6 +4,37 @@ import { BehaviorSubject, Observable, catchError, firstValueFrom, map, of } from
 import { Cliente } from '../models/cliente.model';
 import { environment } from '../../environments/environment';
 
+interface RecognizeResponse {
+  id?: string;
+  nombre?: string;
+  cedula?: string;
+  celular?: string;
+  tipoPago?: string;
+  tipo_pago?: string;
+  fechaPago?: string;
+  fecha_pago?: string;
+  fechaVencimiento?: string;
+  fecha_vencimiento?: string;
+  fecha_fin?: string;
+  fechaRegistro?: string;
+  fecha_registro?: string;
+  historialEntradas?: string[];
+  historial_entradas?: string[];
+  embending?: string;
+  embedding?: string;
+  fotoUrl?: string;
+  photoUrl?: string;
+  foto_url?: string;
+  photo_url?: string;
+  user_id?: string;
+  cliente?: any;
+  data?: any;
+  confidence?: number;
+  confidencia?: number;
+  confianza?: number;
+  distancia?: number;
+}
+
 const API_URL = `${environment.backendUrl}/rest/v1/clientes`;
 
 @Injectable({
@@ -18,6 +49,9 @@ export class ClienteService {
   }
 
   private mapDbCliente(cliente: any): Cliente {
+    const rawFaceDescriptor = cliente.face_descriptor ?? cliente.embedding ?? cliente.embeding ?? cliente.embending ?? null;
+    const faceDescriptor = Array.isArray(rawFaceDescriptor) ? rawFaceDescriptor : null;
+    const fotoUrlFromEmbedding = typeof rawFaceDescriptor === 'string' ? rawFaceDescriptor : '';
     return {
       id: cliente.id,
       nombre: cliente.nombre,
@@ -28,7 +62,8 @@ export class ClienteService {
       fechaPago: cliente.fecha_pago ?? cliente.fecha_inicio ?? '',
       fechaVencimiento: cliente.fecha_vencimiento ?? cliente.fecha_fin ?? '',
       historialEntradas: cliente.historial_entradas ?? cliente.historialEntradas ?? [],
-      faceDescriptor: cliente.face_descriptor ?? cliente.embedding ?? null,
+      faceDescriptor,
+      fotoUrl: cliente.foto_url ?? cliente.photo_url ?? cliente.fotoUrl ?? cliente.photoUrl ?? fotoUrlFromEmbedding ?? '',
       user_id: cliente.user_id
     };
   }
@@ -223,6 +258,51 @@ export class ClienteService {
       c.cedula.includes(term) ||
       c.celular.includes(term)
     );
+  }
+
+  async uploadPhoto(file: File, itemId: string): Promise<string | null> {
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('itemId', itemId);
+
+    try {
+      const response = await firstValueFrom(this.http.post<{ url: string }>(`${environment.backendUrl}/api/upload-photo`, formData));
+      const url = response?.url ?? null;
+      if (!url) {
+        return null;
+      }
+
+      const clienteActualizado = await this.updateClientePhotoUrl(itemId, url);
+      if (!clienteActualizado) {
+        return null;
+      }
+
+      return url;
+    } catch (error) {
+      console.error('Error subiendo foto:', error);
+      return null;
+    }
+  }
+
+  private async updateClientePhotoUrl(id: string, url: string): Promise<Cliente | null> {
+    try {
+      const updated = await firstValueFrom(this.http.put<any>(`${environment.backendUrl}/api/clientes/${id}/photo-url`, { photoUrl: url }));
+      const clienteModel = this.mapDbCliente(updated);
+      this.clientesSubject.next(this.clientesSubject.value.map(c => c.id === id ? clienteModel : c));
+      return clienteModel;
+    } catch (error) {
+      console.error('Error guardando photoUrl en cliente:', error);
+      return null;
+    }
+  }
+
+  async recognizeDescriptor(descriptor: number[]): Promise<RecognizeResponse | null> {
+    try {
+      return await firstValueFrom(this.http.post<RecognizeResponse>(`${environment.backendUrl}/recognize`, { descriptor }));
+    } catch (error) {
+      console.error('Error en reconocimiento backend:', error);
+      return null;
+    }
   }
 
   async registrarEntrada(clienteId: string): Promise<void> {

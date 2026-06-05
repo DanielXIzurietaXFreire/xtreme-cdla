@@ -31,6 +31,8 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
 
   private recognitionInterval: any;
 
+  recognitionPhotoUrl: string | null = null;
+
   // Anti-duplicados: evita registrar la misma persona en cada frame/intervalo.
   private lastRegisteredClienteId: string | null = null;
   private lastRegisteredAt: number = 0;
@@ -129,24 +131,62 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
     }
   }
 
+  private readonly descriptorCache = new Map<string, number[]>();
+
   private isValidDescriptor(descriptor: number[] | null): descriptor is number[] {
     return Array.isArray(descriptor) && descriptor.length === 128;
   }
 
-  private getRegisteredDescriptors() {
-    return this.clienteService.getClientes()
-      .filter(c => this.isValidDescriptor(c.faceDescriptor ?? null))
-      .map(c => ({
-        descriptor: c.faceDescriptor as number[],
-        id: c.id,
-        nombre: c.nombre
-      }));
+  private resolveClientImageUrl(cliente: Cliente): string | null {
+    if (cliente.fotoUrl) {
+      return cliente.fotoUrl;
+    }
+    return null;
+  }
+
+  private async getDescriptorForClient(cliente: Cliente): Promise<number[] | null> {
+    if (this.isValidDescriptor(cliente.faceDescriptor ?? null)) {
+      return cliente.faceDescriptor as number[];
+    }
+
+    const imageUrl = this.resolveClientImageUrl(cliente);
+    if (!imageUrl) {
+      return null;
+    }
+
+    if (this.descriptorCache.has(imageUrl)) {
+      return this.descriptorCache.get(imageUrl) ?? null;
+    }
+
+    const descriptor = await this.faceRecognitionService.imageUrlToDescriptor(imageUrl);
+    if (descriptor) {
+      this.descriptorCache.set(imageUrl, descriptor);
+    }
+    return descriptor;
+  }
+
+  private async getRegisteredDescriptors() {
+    const clientes = this.clienteService.getClientes();
+    const descriptorsList: Array<{ descriptor: number[]; id: string; nombre: string }> = [];
+
+    for (const cliente of clientes) {
+      const descriptor = await this.getDescriptorForClient(cliente);
+      if (descriptor) {
+        descriptorsList.push({
+          descriptor,
+          id: cliente.id,
+          nombre: cliente.nombre
+        });
+      }
+    }
+
+    return descriptorsList;
   }
 
   private async matchFaceDescriptor(queryDescriptor: number[]): Promise<any> {
-    const descriptorsList = this.getRegisteredDescriptors();
+    const descriptorsList = await this.getRegisteredDescriptors();
     if (descriptorsList.length === 0) {
-      this.statusMessage = 'No hay clientes registrados con descriptor facial para comparar';
+      this.statusMessage = 'No hay clientes registrados con descriptor facial o URL de imagen para comparar';
       return null;
     }
 
@@ -174,42 +214,76 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const match = await this.matchFaceDescriptor(queryDescriptor);
-      if (!match) {
+      const response = await this.clienteService.recognizeDescriptor(queryDescriptor);
+      const payload = response?.cliente ?? response?.data ?? response;
+      if (!payload?.nombre) {
         this.statusMessage = 'Rostro no reconocido. Intenta acercarte más o verifica que el cliente esté registrado.';
         this.recognitionResult = null;
+        this.recognitionPhotoUrl = null;
         return;
       }
 
-      const clienteCompleto = this.clienteService.getClientes().find(c => c.id === match.id);
-      if (!clienteCompleto) {
-        this.statusMessage = 'Error al cargar datos del cliente identificado.';
+      const confidence = this.getRecognitionConfidence(response, payload);
+      const distance = this.getRecognitionDistance(response, payload);
+      if (!this.shouldAcceptRecognition(confidence, distance)) {
+        this.statusMessage = 'Rostro no reconocido. Verifica iluminación y vuelve a intentar.';
         this.recognitionResult = null;
+        this.recognitionPhotoUrl = null;
         return;
       }
+
+      const photoUrl = this.resolveRecognitionPhotoUrl(payload);
+      this.recognitionPhotoUrl = photoUrl;
+
+      const recognizedId = payload.id ?? response?.id ?? payload.user_id ?? response?.user_id;
+      const normalizedName = payload.nombre?.trim().toLowerCase();
+      const existingCliente = this.clienteService.getClientes().find(cliente =>
+        (recognizedId && cliente.id === recognizedId) ||
+        (normalizedName && cliente.nombre?.trim().toLowerCase() === normalizedName)
+      );
+
+      const clienteReconocido: Cliente = {
+        id: payload.id ?? response?.id ?? existingCliente?.id ?? '',
+        nombre: payload.nombre ?? existingCliente?.nombre ?? '',
+        cedula: payload.cedula ?? existingCliente?.cedula ?? '',
+        celular: payload.celular ?? existingCliente?.celular ?? '',
+        fechaRegistro:
+          payload.fechaRegistro ?? payload.fecha_registro ?? response?.fechaRegistro ?? response?.fecha_registro ?? existingCliente?.fechaRegistro ?? '',
+        tipoPago:
+          payload.tipoPago ?? payload.tipo_pago ?? response?.tipoPago ?? response?.tipo_pago ?? existingCliente?.tipoPago ?? '',
+        fechaPago:
+          payload.fechaPago ?? payload.fecha_pago ?? response?.fechaPago ?? response?.fecha_pago ?? existingCliente?.fechaPago ?? '',
+        fechaVencimiento:
+          payload.fechaVencimiento ?? payload.fecha_vencimiento ?? payload.fecha_fin ?? response?.fechaVencimiento ?? response?.fecha_vencimiento ?? response?.fecha_fin ?? existingCliente?.fechaVencimiento ?? '',
+        historialEntradas:
+          payload.historialEntradas ?? payload.historial_entradas ?? response?.historialEntradas ?? response?.historial_entradas ?? existingCliente?.historialEntradas ?? [],
+        faceDescriptor: null,
+        fotoUrl: photoUrl ?? existingCliente?.fotoUrl ?? '',
+        user_id: payload.user_id ?? response?.user_id ?? existingCliente?.user_id ?? ''
+      };
 
       this.recognitionResult = {
-        cliente: clienteCompleto,
-        confianza: match.confianza,
-        distancia: match.distancia
+        cliente: clienteReconocido,
+        confianza: confidence,
+        distancia: distance
       };
-      this.statusMessage = `✓ Identificado: ${match.nombre} (Confianza: ${(match.confianza * 100).toFixed(1)}%)`;
-      this.toastService.show(`¡Bienvenido ${match.nombre}!`, 'success');
+      this.statusMessage = `✓ Identificado: ${payload.nombre}`;
+      this.toastService.show(`¡Bienvenido ${payload.nombre}!`, 'success');
 
       const now = Date.now();
       const shouldRegister =
         !this.lastRegisteredAt ||
-        this.lastRegisteredClienteId !== clienteCompleto.id ||
+        this.lastRegisteredClienteId !== this.recognitionResult.cliente.id ||
         (now - this.lastRegisteredAt) >= this.autoRegisterCooldownMs;
 
       if (shouldRegister) {
-        await this.clienteService.registrarEntrada(clienteCompleto.id);
-        this.toastService.show(`Entrada registrada para ${clienteCompleto.nombre}`, 'success');
-        this.statusMessage = `Entrada registrada para ${clienteCompleto.nombre}.`;
+        await this.clienteService.registrarEntrada(this.recognitionResult.cliente.id);
+        this.toastService.show(`Entrada registrada para ${this.recognitionResult.cliente.nombre}`, 'success');
+        this.statusMessage = `Entrada registrada para ${this.recognitionResult.cliente.nombre}.`;
 
         await this.openTurnstile();
 
-        this.lastRegisteredClienteId = clienteCompleto.id;
+        this.lastRegisteredClienteId = this.recognitionResult.cliente.id;
         this.lastRegisteredAt = now;
       }
     } catch (error) {
@@ -218,6 +292,39 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
     } finally {
       this.isRecognizing = false;
     }
+  }
+
+  private resolveRecognitionPhotoUrl(response: any): string | null {
+    return (
+      response.fotoUrl ?? response.photoUrl ?? response.foto_url ?? response.photo_url ??
+      response.embedding ?? response.embending ?? response.imageUrl ?? response.image_url ?? null
+    );
+  }
+
+  private getRecognitionConfidence(response: any, payload: any): number {
+    const raw = response?.confianza ?? response?.confidencia ?? response?.confidence ??
+      payload?.confianza ?? payload?.confidencia ?? payload?.confidence;
+    return typeof raw === 'number' ? raw : NaN;
+  }
+
+  private getRecognitionDistance(response: any, payload: any): number {
+    const raw = response?.distancia ?? payload?.distancia ?? response?.distance ?? payload?.distance;
+    return typeof raw === 'number' ? raw : NaN;
+  }
+
+  private shouldAcceptRecognition(confidence: number, distance: number): boolean {
+    const hasConfidence = !isNaN(confidence);
+    const hasDistance = !isNaN(distance);
+
+    if (hasConfidence && confidence < 0.7) {
+      return false;
+    }
+
+    if (hasDistance && distance > 0.6) {
+      return false;
+    }
+
+    return true;
   }
 
   registerEntry(): void {
@@ -243,18 +350,32 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
   }
 
   getDiasRestantes(fechaVencimiento: string): number {
+    const fecha = new Date(fechaVencimiento);
+    if (isNaN(fecha.getTime())) {
+      return NaN;
+    }
     return this.clienteService.calcularDiasRestantes(fechaVencimiento);
   }
 
   getStatusClass(dias: number): string {
+    if (isNaN(dias)) return 'sin-vencimiento';
     if (dias < 0) return 'vencido';
     if (dias <= 3) return 'proximo';
     return 'vigente';
   }
 
   getStatusText(dias: number): string {
+    if (isNaN(dias)) return 'Sin fecha';
     if (dias < 0) return 'Vencido';
     if (dias === 0) return 'Hoy';
     return `${dias} días`;
+  }
+
+  getRemainingDaysText(fechaVencimiento: string): string {
+    const dias = this.getDiasRestantes(fechaVencimiento);
+    if (isNaN(dias)) return 'Fecha no disponible';
+    if (dias < 0) return `Venció hace ${Math.abs(dias)} días`;
+    if (dias === 0) return 'Vence hoy';
+    return `Faltan ${dias} días`;
   }
 }

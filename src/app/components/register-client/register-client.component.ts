@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, ValidationErrors } from '@angular/forms';
 import { ClienteService } from '../../services/cliente.service';
 import { ToastService } from '../../services/toast.service';
-import { FaceRecognitionService } from '../../services/face-recognition.service';
 import { CameraPhotoComponent } from '../camera-photo/camera-photo.component';
 
 @Component({
@@ -17,6 +16,8 @@ export class RegisterClientComponent implements OnInit {
   form!: FormGroup;
   isSubmitting: boolean = false;
   fotoCapturada: string = '';
+  fotoFile: File | null = null;
+  fotoUrl: string = '';
   fechaVencimiento: string = '';
 
   @ViewChild(CameraPhotoComponent) cameraComponent!: CameraPhotoComponent;
@@ -24,8 +25,7 @@ export class RegisterClientComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly clienteService: ClienteService,
-    private readonly toastService: ToastService,
-    private readonly faceRecognitionService: FaceRecognitionService
+    private readonly toastService: ToastService
   ) {
     this.initForm();
   }
@@ -101,28 +101,12 @@ export class RegisterClientComponent implements OnInit {
     }
   }
 
-  private isValidFaceDescriptor(descriptor: number[] | null): descriptor is number[] {
-    return Array.isArray(descriptor) && descriptor.length === 128;
-  }
-
-  private async waitForFaceRecognitionModels(): Promise<boolean> {
-    const loaded = await this.faceRecognitionService.waitForModelsLoaded(10000);
-    if (!loaded) {
-      this.toastService.show('Los modelos de reconocimiento facial no están listos aún. Espera unos segundos y vuelve a intentarlo.', 'error');
-    }
-    return loaded;
-  }
-
   async onSubmit(): Promise<void> {
     if (this.form.invalid || !this.fotoCapturada) {
       if (this.form.invalid) {
         this.form.markAllAsTouched();
       }
       this.toastService.show('Por favor completa todos los campos con valores válidos y captura una foto', 'error');
-      return;
-    }
-
-    if (!(await this.waitForFaceRecognitionModels())) {
       return;
     }
 
@@ -143,30 +127,28 @@ export class RegisterClientComponent implements OnInit {
       const tipoPago = formValue.tipoPago;
       const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
 
-      const faceDescriptor = this.fotoCapturada
-        ? await this.faceRecognitionService.imageToDescriptor(this.fotoCapturada)
-        : null;
-
-      if (!this.isValidFaceDescriptor(faceDescriptor)) {
-        this.toastService.show('No se pudo generar un descriptor facial válido. Asegúrate de tomar una foto clara y vuelve a intentarlo.', 'error');
-        console.error('Descriptor facial inválido o nulo:', faceDescriptor);
-        return;
-      }
-
       const nuevoClienteBackend = {
         nombre: formValue.nombre,
         cedula: formValue.cedula,
         celular: formValue.celular,
         fecha_inicio: fechaPago,
         fecha_fin: fechaVencimiento,
-        tipo_pago: tipoPago,
-        embedding: faceDescriptor
+        tipo_pago: tipoPago
       };
 
       const clienteCreado = await this.clienteService.crearClienteBackend(nuevoClienteBackend);
       if (!clienteCreado) {
         this.toastService.show('Error al registrar el cliente en el servidor', 'error');
         return;
+      }
+
+      if (this.fotoFile) {
+        const uploadedUrl = await this.clienteService.uploadPhoto(this.fotoFile, clienteCreado.id);
+        if (uploadedUrl) {
+          this.fotoUrl = uploadedUrl;
+        } else {
+          this.toastService.show('Cliente registrado, pero no se pudo subir la foto.', 'info');
+        }
       }
 
       this.toastService.show('Cliente registrado exitosamente ✓', 'success');
@@ -184,6 +166,7 @@ export class RegisterClientComponent implements OnInit {
   resetForm(): void {
     this.form.reset();
     this.fotoCapturada = '';
+    this.fotoFile = null;
     if (this.cameraComponent) {
       this.cameraComponent.reset();
     }
@@ -217,6 +200,8 @@ export class RegisterClientComponent implements OnInit {
 
   onFotoCapturada(foto: string): void {
     this.fotoCapturada = foto;
+    this.fotoFile = this.cameraComponent?.getSelectedPhotoFile() ?? null;
+    this.fotoUrl = '';
   }
 
   get isFormValid(): boolean {

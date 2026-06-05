@@ -28,9 +28,14 @@
       <tbody>
         <tr *ngFor="let cliente of filteredClientes">
           <td>
-            <div class="client-photo-placeholder">
-              <i class="fas fa-user"></i>
-            </div>
+            <ng-container *ngIf="cliente.fotoUrl; else noPhoto">
+              <img class="client-photo" [src]="cliente.fotoUrl" [alt]="cliente.nombre" />
+            </ng-container>
+            <ng-template #noPhoto>
+              <div class="client-photo-placeholder">
+                <i class="fas fa-user"></i>
+              </div>
+            </ng-template>
           </td>
           <td><strong>{{ cliente.nombre }}</strong></td>
           <td>{{ cliente.cedula }}</td>

@@ -26,7 +26,7 @@
       </button>
       <button class="btn btn-secondary" (click)="captureAndRecognize()" [disabled]="!cameraActive || isRecognizing">
         <i class="fas fa-search"></i>
-        {{ isRecognizing ? 'Buscando...' : 'Capturar y buscar' }}
+        {{ isRecognizing ? 'Reconociendo...' : 'Reconocer' }}
       </button>
     </div>
 
@@ -47,35 +47,46 @@
       </div>
 
       <div class="result-content">
-        <div class="client-photo-container client-photo-placeholder">
-          <i class="fas fa-user"></i>
+        <div class="client-photo-container" *ngIf="recognitionPhotoUrl; else noPhoto">
+          <img class="client-photo" [src]="recognitionPhotoUrl" alt="Foto cliente" />
           <div class="confidence-badge">
             {{ (recognitionResult.confianza * 100).toFixed(0) }}%
           </div>
         </div>
 
+        <ng-template #noPhoto>
+          <div class="client-photo-container client-photo-placeholder">
+            <i class="fas fa-user"></i>
+            <div class="confidence-badge">
+              {{ (recognitionResult.confianza * 100).toFixed(0) }}%
+            </div>
+          </div>
+        </ng-template>
+
         <div class="client-details">
           <div class="detail">
-            <label>Nombre:</label>
-            <strong>{{ recognitionResult.cliente.nombre }}</strong>
+            <span class="field-label">Nombre:</span>
+            <strong>{{ recognitionResult.cliente.nombre || 'No disponible' }}</strong>
           </div>
           <div class="detail">
-            <label>Cédula:</label>
-            <strong>{{ recognitionResult.cliente.cedula }}</strong>
+            <span class="field-label">Cédula:</span>
+            <strong>{{ recognitionResult.cliente.cedula || 'No disponible' }}</strong>
           </div>
           <div class="detail">
-            <label>Tipo de pago:</label>
-            <strong>{{ recognitionResult.cliente.tipoPago }}</strong>
+            <span class="field-label">Tipo de pago:</span>
+            <strong>{{ recognitionResult.cliente.tipoPago || 'No disponible' }}</strong>
           </div>
           <div class="detail">
-            <label>Vencimiento:</label>
+            <span class="field-label">Vencimiento:</span>
             <strong [class]="getStatusClass(getDiasRestantes(recognitionResult.cliente.fechaVencimiento))">
               {{ getStatusText(getDiasRestantes(recognitionResult.cliente.fechaVencimiento)) }}
             </strong>
+            <span class="remaining-days">
+              {{ getRemainingDaysText(recognitionResult.cliente.fechaVencimiento) }}
+            </span>
           </div>
         </div>
       </div>
-
 
     </div>
   </div>
