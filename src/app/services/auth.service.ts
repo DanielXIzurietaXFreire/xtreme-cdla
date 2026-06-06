@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, firstValueFrom, map, of } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 interface AuthResponse {
   access_token?: string;
@@ -20,7 +21,7 @@ interface AuthStorage {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly authUrl = 'http://localhost:3000/auth/v1/token?grant_type=password';
+  private readonly authUrl = `${environment.backendUrl}/auth/v1/token?grant_type=password`;
   private readonly sessionDurationMs = 4 * 60 * 60 * 1000; // 4 horas
   private readonly isAuthenticatedSubject = new BehaviorSubject<boolean>(this.checkAuth());
   public isAuthenticated$: Observable<boolean> = this.isAuthenticatedSubject.asObservable();
