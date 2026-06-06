@@ -32,6 +32,7 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
   private recognitionInterval: any;
 
   recognitionPhotoUrl: string | null = null;
+  lastRawResponse: any = null;
 
   // Anti-duplicados: evita registrar la misma persona en cada frame/intervalo.
   private lastRegisteredClienteId: string | null = null;
@@ -92,6 +93,13 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
 
     try {
       this.isLoading = true;
+      const modelsReady = await this.faceRecognitionService.waitForModelsLoaded(15000);
+      if (!modelsReady) {
+        this.statusMessage = 'Error: modelos de reconocimiento no cargaron a tiempo.';
+        this.toastService.show('Los modelos no están listos. Intenta recargar la página', 'error');
+        this.isLoading = false;
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' }
       });
@@ -208,45 +216,84 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const queryDescriptor = await this.faceRecognitionService.generateDescriptor(canvas);
-      if (!this.isValidDescriptor(queryDescriptor)) {
-        this.statusMessage = 'No se pudo generar descriptor facial. Asegúrate de que el rostro esté bien iluminado y centrado.';
+      // Asegurarse que los modelos estén listos y que haya exactamente un rostro detectable
+      const modelsReady = await this.faceRecognitionService.waitForModelsLoaded(10000);
+      if (!modelsReady) {
+        this.statusMessage = 'Modelos no listos para reconocimiento.';
         return;
       }
 
-      const response = await this.clienteService.recognizeDescriptor(queryDescriptor);
-      const payload = response?.cliente ?? response?.data ?? response;
-      if (!payload?.nombre) {
-        this.statusMessage = 'Rostro no reconocido. Intenta acercarte más o verifica que el cliente esté registrado.';
+      const detection = await this.faceRecognitionService.detectFace(canvas);
+      if (!detection) {
+        this.statusMessage = 'No se detectó rostro en el frame.';
+        return;
+      }
+
+      const queryDescriptor = await this.faceRecognitionService.generateDescriptor(canvas);
+      if (!this.isValidDescriptor(queryDescriptor)) {
+        this.statusMessage = 'No se pudo generar descriptor facial (128 dims requeridas). Asegúrate de buena iluminación y posicionamiento.';
+        return;
+      }
+
+      // Asegurar que el descriptor sea un array JSON de números
+      const descriptorPayload = queryDescriptor.map(n => Number(n));
+
+      // Primero intentar coincidencia local usando la tabla de clientes
+      const localMatch = await this.matchFaceDescriptor(queryDescriptor);
+      if (localMatch) {
+        console.debug('Match local encontrado:', localMatch);
+        const clientes = this.clienteService.getClientes();
+        const matchedCliente = clientes.find(c => c.id === localMatch.id || (c.nombre && c.nombre.trim().toLowerCase() === (localMatch.nombre ?? '').trim().toLowerCase()));
+        if (matchedCliente) {
+          this.recognitionPhotoUrl = matchedCliente.fotoUrl ?? null;
+          this.recognitionResult = {
+            cliente: matchedCliente,
+            confianza: localMatch.confianza ?? (1 - localMatch.distancia / 1.5),
+            distancia: localMatch.distancia ?? NaN
+          };
+          this.statusMessage = `COINCIDENCIA LOCAL — ${matchedCliente.nombre}`;
+          this.toastService.show(`Cliente identificado: ${matchedCliente.nombre}`, 'success');
+          // No registrar entrada ni abrir torniquete automáticamente en modo sólo lectura
+          return;
+        }
+      }
+
+      const response = await this.clienteService.recognizeDescriptor(descriptorPayload);
+      console.debug('Recognize response:', response);
+      if (!response) {
+        this.statusMessage = 'Sin respuesta del servicio de reconocimiento (backend).';
         this.recognitionResult = null;
         this.recognitionPhotoUrl = null;
         return;
       }
+
+      this.lastRawResponse = response;
+
+      const payload = response?.cliente ?? response?.data ?? response;
+      console.debug('Payload para reconocimiento:', payload);
 
       const confidence = this.getRecognitionConfidence(response, payload);
       const distance = this.getRecognitionDistance(response, payload);
       if (!this.shouldAcceptRecognition(confidence, distance)) {
-        this.statusMessage = 'Rostro no reconocido. Verifica iluminación y vuelve a intentar.';
+        this.statusMessage = 'ACCESO DENEGADO';
         this.recognitionResult = null;
         this.recognitionPhotoUrl = null;
         return;
       }
-
-      const photoUrl = this.resolveRecognitionPhotoUrl(payload);
+      const photoUrl = this.resolveRecognitionPhotoUrl(payload) ?? this.resolveRecognitionPhotoUrl(response);
       this.recognitionPhotoUrl = photoUrl;
 
-      const recognizedId = payload.id ?? response?.id ?? payload.user_id ?? response?.user_id;
-      const normalizedName = payload.nombre?.trim().toLowerCase();
+      const recognizedId = payload.id ?? response?.id ?? payload.user_id ?? response?.user_id ?? this.extractField(response, ['id', 'user.id']);
+      const normalizedName = (payload.nombre ?? payload.name ?? this.extractField(response, ['nombre', 'name', 'user.name']))?.toString().trim().toLowerCase();
       const existingCliente = this.clienteService.getClientes().find(cliente =>
         (recognizedId && cliente.id === recognizedId) ||
         (normalizedName && cliente.nombre?.trim().toLowerCase() === normalizedName)
       );
-
       const clienteReconocido: Cliente = {
-        id: payload.id ?? response?.id ?? existingCliente?.id ?? '',
-        nombre: payload.nombre ?? existingCliente?.nombre ?? '',
-        cedula: payload.cedula ?? existingCliente?.cedula ?? '',
-        celular: payload.celular ?? existingCliente?.celular ?? '',
+        id: payload.id ?? response?.id ?? existingCliente?.id ?? recognizedId ?? '',
+        nombre: payload.nombre ?? payload.name ?? existingCliente?.nombre ?? this.extractField(response, ['nombre', 'name', 'user.name']) ?? '',
+        cedula: payload.cedula ?? payload.identification ?? existingCliente?.cedula ?? this.extractField(response, ['cedula', 'dni', 'identification']) ?? '',
+        celular: payload.celular ?? payload.phone ?? existingCliente?.celular ?? this.extractField(response, ['celular', 'phone']) ?? '',
         fechaRegistro:
           payload.fechaRegistro ?? payload.fecha_registro ?? response?.fechaRegistro ?? response?.fecha_registro ?? existingCliente?.fechaRegistro ?? '',
         tipoPago:
@@ -262,19 +309,40 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
         user_id: payload.user_id ?? response?.user_id ?? existingCliente?.user_id ?? ''
       };
 
+      // Fallback: si algunos campos clave vienen vacíos, intentar extraerlos recursivamente
+      if (!clienteReconocido.nombre) {
+        const f = this.recursiveFind(this.lastRawResponse, ['nombre', 'name', 'cliente.nombre', 'user.name', 'data.nombre']);
+        if (f) clienteReconocido.nombre = String(f);
+      }
+      if (!clienteReconocido.cedula) {
+        const f = this.recursiveFind(this.lastRawResponse, ['cedula', 'dni', 'identification', 'cliente.cedula']);
+        if (f) clienteReconocido.cedula = String(f);
+      }
+      if (!clienteReconocido.celular) {
+        const f = this.recursiveFind(this.lastRawResponse, ['celular', 'phone', 'telefono', 'cliente.celular']);
+        if (f) clienteReconocido.celular = String(f);
+      }
+      if (!clienteReconocido.fotoUrl) {
+        const f = this.recursiveFind(this.lastRawResponse, ['fotoUrl', 'photoUrl', 'foto_url', 'image_url', 'imageUrl']);
+        if (f) clienteReconocido.fotoUrl = String(f);
+      }
+
       this.recognitionResult = {
         cliente: clienteReconocido,
         confianza: confidence,
         distancia: distance
       };
-      this.statusMessage = `✓ Identificado: ${payload.nombre}`;
-      this.toastService.show(`¡Bienvenido ${payload.nombre}!`, 'success');
+      const displayName = clienteReconocido.nombre || clienteReconocido.user_id || 'Desconocido';
+      this.statusMessage = `ACCESO PERMITIDO — ${displayName}`;
+      this.toastService.show(`¡Bienvenido ${displayName}!`, 'success');
 
       const now = Date.now();
       const shouldRegister =
-        !this.lastRegisteredAt ||
-        this.lastRegisteredClienteId !== this.recognitionResult.cliente.id ||
-        (now - this.lastRegisteredAt) >= this.autoRegisterCooldownMs;
+        this.recognitionResult.cliente.id && (
+          !this.lastRegisteredAt ||
+          this.lastRegisteredClienteId !== this.recognitionResult.cliente.id ||
+          (now - this.lastRegisteredAt) >= this.autoRegisterCooldownMs
+        );
 
       if (shouldRegister) {
         await this.clienteService.registrarEntrada(this.recognitionResult.cliente.id);
@@ -301,15 +369,69 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
     );
   }
 
+  private extractField(response: any, keys: string[]): any {
+    if (!response) return null;
+    for (const key of keys) {
+      const parts = key.split('.');
+      let val: any = response;
+      for (const p of parts) {
+        if (val == null) { val = null; break; }
+        val = val[p];
+      }
+      if (val != null) return val;
+
+      if (response.cliente) {
+        val = response.cliente;
+        for (const p of parts) { if (val == null) { val = null; break; } val = val[p]; }
+        if (val != null) return val;
+      }
+
+      if (response.data) {
+        val = response.data;
+        for (const p of parts) { if (val == null) { val = null; break; } val = val[p]; }
+        if (val != null) return val;
+      }
+    }
+    return null;
+  }
+
+  private recursiveFind(obj: any, keys: string[] | string): any {
+    const patterns = Array.isArray(keys) ? keys : [keys];
+    const queue: any[] = [obj];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (cur == null) continue;
+      if (typeof cur === 'object') {
+        for (const k of Object.keys(cur)) {
+          try {
+            // check direct key matches patterns
+            for (const p of patterns) {
+              if (k === p || k.toLowerCase() === p.toLowerCase()) {
+                const val = cur[k];
+                if (val != null && (typeof val === 'string' || typeof val === 'number')) return val;
+              }
+            }
+          } catch { /**/ }
+          const val = cur[k];
+          if (val && typeof val === 'object') queue.push(val);
+          if (Array.isArray(val)) queue.push(...val);
+        }
+      }
+    }
+    return null;
+  }
+
   private getRecognitionConfidence(response: any, payload: any): number {
     const raw = response?.confianza ?? response?.confidencia ?? response?.confidence ??
       payload?.confianza ?? payload?.confidencia ?? payload?.confidence;
-    return typeof raw === 'number' ? raw : NaN;
+    const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
+    return typeof parsed === 'number' && !isNaN(parsed) ? parsed : NaN;
   }
 
   private getRecognitionDistance(response: any, payload: any): number {
     const raw = response?.distancia ?? payload?.distancia ?? response?.distance ?? payload?.distance;
-    return typeof raw === 'number' ? raw : NaN;
+    const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
+    return typeof parsed === 'number' && !isNaN(parsed) ? parsed : NaN;
   }
 
   private shouldAcceptRecognition(confidence: number, distance: number): boolean {

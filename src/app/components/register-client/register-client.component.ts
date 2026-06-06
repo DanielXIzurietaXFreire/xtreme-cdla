@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, ValidationErrors } from '@angular/forms';
 import { ClienteService } from '../../services/cliente.service';
+import { FaceRecognitionService } from '../../services/face-recognition.service';
 import { ToastService } from '../../services/toast.service';
 import { CameraPhotoComponent } from '../camera-photo/camera-photo.component';
 
@@ -25,7 +26,8 @@ export class RegisterClientComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly clienteService: ClienteService,
-    private readonly toastService: ToastService
+    private readonly toastService: ToastService,
+    private readonly faceRecognitionService: FaceRecognitionService
   ) {
     this.initForm();
   }
@@ -127,7 +129,7 @@ export class RegisterClientComponent implements OnInit {
       const tipoPago = formValue.tipoPago;
       const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
 
-      const nuevoClienteBackend = {
+      const nuevoClienteBackend: Record<string, any> = {
         nombre: formValue.nombre,
         cedula: formValue.cedula,
         celular: formValue.celular,
@@ -136,20 +138,33 @@ export class RegisterClientComponent implements OnInit {
         tipo_pago: tipoPago
       };
 
+      // Generar descriptor facial (128 dims) y adjuntar embending (URL/base64) — enviar solo campos limpios
+      if (this.fotoCapturada) {
+        try {
+          const modelsReady = await this.faceRecognitionService.waitForModelsLoaded(10000);
+          if (modelsReady) {
+            const descriptor = await this.faceRecognitionService.imageToDescriptor(this.fotoCapturada);
+            if (Array.isArray(descriptor) && descriptor.length === 128) {
+              nuevoClienteBackend['descriptor'] = descriptor;
+              nuevoClienteBackend['embending'] = this.fotoCapturada;
+            } else {
+              console.warn('No se generó descriptor válido al crear cliente');
+            }
+          } else {
+            console.warn('Modelos de reconocimiento no listos al crear cliente');
+          }
+        } catch (err) {
+          console.error('Error generando descriptor para cliente:', err);
+        }
+      }
+
       const clienteCreado = await this.clienteService.crearClienteBackend(nuevoClienteBackend);
       if (!clienteCreado) {
         this.toastService.show('Error al registrar el cliente en el servidor', 'error');
         return;
       }
 
-      if (this.fotoFile) {
-        const uploadedUrl = await this.clienteService.uploadPhoto(this.fotoFile, clienteCreado.id);
-        if (uploadedUrl) {
-          this.fotoUrl = uploadedUrl;
-        } else {
-          this.toastService.show('Cliente registrado, pero no se pudo subir la foto.', 'info');
-        }
-      }
+      // Photo already sent as `embending` in payload (base64). We keep the payload minimal and flat.
 
       this.toastService.show('Cliente registrado exitosamente ✓', 'success');
 

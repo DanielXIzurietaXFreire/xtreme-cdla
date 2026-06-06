@@ -52,6 +52,7 @@ export class FaceRecognitionService {
   }
 
   async detectFace(input: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<any> {
+    await this.waitForModelsLoaded();
     if (!this.faceapi) return null;
 
     try {
@@ -64,6 +65,7 @@ export class FaceRecognitionService {
   }
 
   async generateDescriptor(input: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<number[] | null> {
+    await this.waitForModelsLoaded();
     if (!this.faceapi) return null;
 
     try {
@@ -72,8 +74,10 @@ export class FaceRecognitionService {
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (detectionWithDescriptor) {
-        return Array.from(detectionWithDescriptor.descriptor);
+      if (detectionWithDescriptor && detectionWithDescriptor.descriptor) {
+        const arr = Array.from(detectionWithDescriptor.descriptor as Iterable<number>).map(n => Number(n));
+        if (arr.length === 128) return arr;
+        console.warn('Descriptor generado no tiene 128 dimensiones:', arr.length);
       }
       return null;
     } catch (error) {

@@ -49,9 +49,8 @@ export class ClienteService {
   }
 
   private mapDbCliente(cliente: any): Cliente {
-    const rawFaceDescriptor = cliente.face_descriptor ?? cliente.embedding ?? cliente.embeding ?? cliente.embending ?? null;
+    const rawFaceDescriptor = cliente.descriptor ?? cliente.face_descriptor ?? cliente.embedding ?? cliente.embeding ?? cliente.embending ?? null;
     const faceDescriptor = Array.isArray(rawFaceDescriptor) ? rawFaceDescriptor : null;
-    const fotoUrlFromEmbedding = typeof rawFaceDescriptor === 'string' ? rawFaceDescriptor : '';
     return {
       id: cliente.id,
       nombre: cliente.nombre,
@@ -63,7 +62,7 @@ export class ClienteService {
       fechaVencimiento: cliente.fecha_vencimiento ?? cliente.fecha_fin ?? '',
       historialEntradas: cliente.historial_entradas ?? cliente.historialEntradas ?? [],
       faceDescriptor,
-      fotoUrl: cliente.foto_url ?? cliente.photo_url ?? cliente.fotoUrl ?? cliente.photoUrl ?? fotoUrlFromEmbedding ?? '',
+      fotoUrl: cliente.embending ?? cliente.foto_url ?? cliente.photo_url ?? cliente.image_url ?? cliente.fotoUrl ?? cliente.photoUrl ?? '',
       user_id: cliente.user_id
     };
   }
@@ -116,9 +115,9 @@ export class ClienteService {
   }
 
   private validateEmbedding(cliente: Record<string, any>): boolean {
-    const embedding = cliente['embedding'];
-    if (embedding && !this.isValidEmbedding(embedding)) {
-      console.error('Embedding inválido: debe tener 128 dimensiones.', embedding.length, embedding);
+    const descriptor = cliente['descriptor'];
+    if (descriptor && !this.isValidEmbedding(descriptor)) {
+      console.error('Descriptor inválido: debe tener 128 dimensiones.', Array.isArray(descriptor) ? descriptor.length : typeof descriptor, descriptor);
       return false;
     }
     return true;
@@ -154,12 +153,16 @@ export class ClienteService {
       return await this.executeInsert(payload);
     }
 
-    if (this.hasMissingColumnError(error, 'embedding') || this.hasMissingColumnError(error, 'fecha_inicio') || this.hasMissingColumnError(error, 'fecha_fin')) {
+    if (this.hasMissingColumnError(error, 'embedding') || this.hasMissingColumnError(error, 'descriptor') || this.hasMissingColumnError(error, 'fecha_inicio') || this.hasMissingColumnError(error, 'fecha_fin')) {
       console.warn('Backend schema mismatch detected; retrying with legacy cliente schema.');
       const payload = { ...cliente };
       if (payload['embedding']) {
         payload['face_descriptor'] = payload['embedding'];
         delete payload['embedding'];
+      }
+      if (payload['descriptor']) {
+        payload['face_descriptor'] = payload['descriptor'];
+        delete payload['descriptor'];
       }
       if (payload['fecha_inicio']) {
         payload['fecha_registro'] = payload['fecha_inicio'];
@@ -203,12 +206,16 @@ export class ClienteService {
       return await this.executePatch(id, payload);
     }
 
-    if (this.hasMissingColumnError(error, 'embedding') || this.hasMissingColumnError(error, 'fecha_inicio') || this.hasMissingColumnError(error, 'fecha_fin')) {
+    if (this.hasMissingColumnError(error, 'embedding') || this.hasMissingColumnError(error, 'descriptor') || this.hasMissingColumnError(error, 'fecha_inicio') || this.hasMissingColumnError(error, 'fecha_fin')) {
       console.warn('Backend schema mismatch detected; retrying update with legacy cliente schema.');
       const payload = { ...actualizado };
       if (payload['embedding']) {
         payload['face_descriptor'] = payload['embedding'];
         delete payload['embedding'];
+      }
+      if (payload['descriptor']) {
+        payload['face_descriptor'] = payload['descriptor'];
+        delete payload['descriptor'];
       }
       if (payload['fecha_inicio']) {
         payload['fecha_pago'] = payload['fecha_inicio'];

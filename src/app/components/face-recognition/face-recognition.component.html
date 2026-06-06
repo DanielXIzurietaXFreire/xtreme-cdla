@@ -12,6 +12,11 @@
         <i class="fas fa-video"></i>
         <p>Cámara no activa</p>
       </div>
+
+        <div class="debug-panel" *ngIf="lastRawResponse">
+          <h4>Respuesta backend (cruda)</h4>
+          <pre>{{ lastRawResponse | json }}</pre>
+        </div>
       <div class="camera-overlay" *ngIf="cameraActive">
         <div class="face-detector">
           <i class="fas fa-face-smile"></i>
