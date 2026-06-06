@@ -251,9 +251,24 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
             confianza: localMatch.confianza ?? (1 - localMatch.distancia / 1.5),
             distancia: localMatch.distancia ?? NaN
           };
-          this.statusMessage = `COINCIDENCIA LOCAL — ${matchedCliente.nombre}`;
+          this.statusMessage = `ACCESO PERMITIDO — ${matchedCliente.nombre}`;
           this.toastService.show(`Cliente identificado: ${matchedCliente.nombre}`, 'success');
-          // No registrar entrada ni abrir torniquete automáticamente en modo sólo lectura
+
+          const now = Date.now();
+          const shouldRegister =
+            matchedCliente.id && (
+              !this.lastRegisteredAt ||
+              this.lastRegisteredClienteId !== matchedCliente.id ||
+              (now - this.lastRegisteredAt) >= this.autoRegisterCooldownMs
+            );
+
+          if (shouldRegister) {
+            await this.clienteService.registrarEntrada(matchedCliente.id);
+            await this.openTurnstile();
+            this.lastRegisteredClienteId = matchedCliente.id;
+            this.lastRegisteredAt = now;
+          }
+
           return;
         }
       }
