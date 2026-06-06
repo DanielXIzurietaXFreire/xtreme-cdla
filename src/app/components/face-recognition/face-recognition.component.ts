@@ -38,7 +38,7 @@ export class FaceRecognitionComponent implements OnInit, OnDestroy {
   private lastRegisteredClienteId: string | null = null;
   private lastRegisteredAt: number = 0;
   private readonly autoRegisterCooldownMs: number = 10_000;
-  private readonly turnstileApiUrl = 'http://192.168.1.42:5000/abrir';
+  private readonly turnstileApiUrl = 'https://torniqueteapi.uk/abrir';
 
   constructor(
     private readonly faceRecognitionService: FaceRecognitionService,

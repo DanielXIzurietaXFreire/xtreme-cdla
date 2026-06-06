@@ -138,7 +138,7 @@ export class RegisterClientComponent implements OnInit {
         tipo_pago: tipoPago
       };
 
-      // Generar descriptor facial (128 dims) y adjuntar embending (URL/base64) — enviar solo campos limpios
+      // Generar descriptor facial (128 dims) y enviar sólo el descriptor en el JSON.
       if (this.fotoCapturada) {
         try {
           const modelsReady = await this.faceRecognitionService.waitForModelsLoaded(10000);
@@ -146,7 +146,6 @@ export class RegisterClientComponent implements OnInit {
             const descriptor = await this.faceRecognitionService.imageToDescriptor(this.fotoCapturada);
             if (Array.isArray(descriptor) && descriptor.length === 128) {
               nuevoClienteBackend['descriptor'] = descriptor;
-              nuevoClienteBackend['embending'] = this.fotoCapturada;
             } else {
               console.warn('No se generó descriptor válido al crear cliente');
             }
@@ -164,7 +163,13 @@ export class RegisterClientComponent implements OnInit {
         return;
       }
 
-      // Photo already sent as `embending` in payload (base64). We keep the payload minimal and flat.
+      const selectedPhotoFile = this.cameraComponent?.getSelectedPhotoFile() ?? this.fotoFile;
+      if (selectedPhotoFile && clienteCreado.id) {
+        const uploadedUrl = await this.clienteService.uploadPhoto(selectedPhotoFile, clienteCreado.id);
+        if (!uploadedUrl) {
+          this.toastService.show('Cliente registrado, pero la foto no se pudo subir.', 'info');
+        }
+      }
 
       this.toastService.show('Cliente registrado exitosamente ✓', 'success');
 
