@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ClienteService } from '../../../services/cliente.service';
+import { ToastService } from '../../../services/toast.service';
 import { Cliente } from '../../../models/cliente.model';
 import { FaceRecognitionService } from '../../../services/face-recognition.service';
 import { CameraPhotoComponent } from '../../camera-photo/camera-photo.component';
@@ -30,6 +31,7 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   constructor(
     private readonly fb: FormBuilder,
     private readonly clienteService: ClienteService,
+    private readonly toastService: ToastService,
     private readonly faceRecognitionService: FaceRecognitionService
   ) {
     this.initForm();
@@ -95,7 +97,11 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   }
 
   async onSubmit(): Promise<void> {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.toastService.show('Por favor completa todos los campos correctamente', 'error');
+      return;
+    }
 
     this.isSubmitting = true;
     try {
@@ -118,8 +124,14 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
 
       const clienteActualizado = await this.clienteService.actualizarClienteBackend(this.cliente.id, actualizado);
       if (clienteActualizado) {
+        this.toastService.show('Cliente actualizado exitosamente ✓', 'success');
         this.clienteActualizado.emit();
+      } else {
+        this.toastService.show('Error al actualizar el cliente en el servidor', 'error');
       }
+    } catch (error) {
+      console.error('Error actualizando cliente:', error);
+      this.toastService.show('Error al actualizar el cliente', 'error');
     } finally {
       this.isSubmitting = false;
     }

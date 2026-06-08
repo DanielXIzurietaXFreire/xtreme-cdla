@@ -68,16 +68,25 @@ export class ClienteService {
   }
 
   private loadClientes(): void {
-    firstValueFrom(
-      this.http.get<any[]>(`${API_URL}?select=*`)
-        .pipe(
-          map(rows => rows.map((row: any) => this.mapDbCliente(row))),
-          catchError(error => {
-            console.error('Error cargando clientes desde backend:', error);
-            return of([] as Cliente[]);
-          })
-        )
-    ).then(clientes => this.clientesSubject.next(clientes));
+    this.refreshClientes();
+  }
+
+  public async refreshClientes(): Promise<void> {
+    try {
+      const clientes = await firstValueFrom(
+        this.http.get<any[]>(`${API_URL}?select=*`)
+          .pipe(
+            map(rows => rows.map((row: any) => this.mapDbCliente(row))),
+            catchError(error => {
+              console.error('Error cargando clientes desde backend:', error);
+              return of([] as Cliente[]);
+            })
+          )
+      );
+      this.clientesSubject.next(clientes);
+    } catch (error) {
+      console.error('Error en refreshClientes:', error);
+    }
   }
 
   private async executeInsert(payload: Record<string, any>): Promise<Cliente | null> {
@@ -87,6 +96,8 @@ export class ClienteService {
     if (!created) return null;
     const clienteModel = this.mapDbCliente(created);
     this.clientesSubject.next([...this.clientesSubject.value, clienteModel]);
+    // Refresh completo para sincronizar con cualquier cambio en el servidor
+    await this.refreshClientes();
     return clienteModel;
   }
 
@@ -97,6 +108,8 @@ export class ClienteService {
     if (!updated) return null;
     const clienteModel = this.mapDbCliente(updated);
     this.clientesSubject.next(this.clientesSubject.value.map(c => c.id === id ? clienteModel : c));
+    // Refresh completo para sincronizar con cualquier cambio en el servidor
+    await this.refreshClientes();
     return clienteModel;
   }
 
@@ -232,22 +245,21 @@ export class ClienteService {
     return null;
   }
 
-  eliminarClienteBackend(id: string): Promise<boolean> {
+  async eliminarClienteBackend(id: string): Promise<boolean> {
     const headers = new HttpHeaders({ Prefer: 'return=representation' });
-    return firstValueFrom(
-      this.http.delete<any[]>(`${API_URL}?id=eq.${id}`, { headers })
-        .pipe(
-          map(rows => {
-            if (!rows || rows.length === 0) return false;
-            this.clientesSubject.next(this.clientesSubject.value.filter(c => c.id !== id));
-            return true;
-          }),
-          catchError(error => {
-            console.error('Error eliminando cliente en backend:', error);
-            return of(false);
-          })
-        )
-    );
+    try {
+      const rows = await firstValueFrom(
+        this.http.delete<any[]>(`${API_URL}?id=eq.${id}`, { headers })
+      );
+      if (!rows || rows.length === 0) return false;
+      this.clientesSubject.next(this.clientesSubject.value.filter(c => c.id !== id));
+      // Refresh completo para sincronizar con cualquier cambio en el servidor
+      await this.refreshClientes();
+      return true;
+    } catch (error) {
+      console.error('Error eliminando cliente en backend:', error);
+      return false;
+    }
   }
 
   getClientes(): Cliente[] {
