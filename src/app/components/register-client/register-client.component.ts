@@ -171,7 +171,12 @@ export class RegisterClientComponent implements OnInit {
         }
       }
 
-      this.toastService.show('Cliente registrado exitosamente ✓', 'success');
+      const torniqueteAbierto = await this.openTurnstile();
+      if (torniqueteAbierto) {
+        this.toastService.show('Cliente registrado exitosamente ✓ Torniquete abierto.', 'success');
+      } else {
+        this.toastService.show('Cliente registrado exitosamente ✓ No se pudo abrir el torniquete.', 'info');
+      }
 
       this.resetForm();
     } catch (error) {
@@ -216,6 +221,23 @@ export class RegisterClientComponent implements OnInit {
       }
     }
     return 'Por favor ingresa un valor válido';
+  }
+
+  private async openTurnstile(): Promise<boolean> {
+    try {
+      const response = await fetch('https://torniqueteapi.uk/abrir', {
+        method: 'GET',
+        mode: 'cors'
+      });
+      if (!response.ok) {
+        console.warn('No se pudo abrir el torniquete:', response.status, response.statusText);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error llamando al torniquete:', error);
+      return false;
+    }
   }
 
   onFotoCapturada(foto: string): void {
