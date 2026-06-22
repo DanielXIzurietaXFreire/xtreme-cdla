@@ -47,6 +47,13 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
       });
       this.fechaVencimiento = this.cliente.fechaVencimiento || this.clienteService.calcularVencimiento(this.cliente.fechaPago, this.cliente.tipoPago);
       this.fotoUrl = this.cliente.fotoUrl || '';
+      const numeroMesesControl = this.form.get('numeroMeses');
+      if (numeroMesesControl) {
+        // Ensure programmatic default doesn't mark control as "dirty"
+        numeroMesesControl.setValue(1, { emitEvent: false });
+        numeroMesesControl.markAsPristine();
+        numeroMesesControl.markAsUntouched();
+      }
     }
 
     this.listenTipoPagoChanges();
@@ -136,21 +143,41 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
     this.isSubmitting = true;
     try {
       const formValue = this.form.value;
-      const fechaPago = formValue.fechaPago;
-      const tipoPago = formValue.tipoPago;
-      const numeroMeses = formValue.numeroMeses ?? 1;
-      const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago, numeroMeses);
+      const actualizado: Record<string, any> = {};
 
-      const actualizado: Record<string, any> = {
-        nombre: formValue.nombre,
-        celular: formValue.celular,
-        tipo_pago: tipoPago,
-        fecha_inicio: fechaPago,
-        fecha_fin: fechaVencimiento
-      };
+      const nombreCtrl = this.form.get('nombre');
+      const celularCtrl = this.form.get('celular');
+      const tipoPagoCtrl = this.form.get('tipoPago');
+      const fechaPagoCtrl = this.form.get('fechaPago');
+      const numeroMesesCtrl = this.form.get('numeroMeses');
+
+      if (nombreCtrl && nombreCtrl.dirty && formValue.nombre !== this.cliente.nombre) {
+        actualizado['nombre'] = formValue.nombre;
+      }
+      if (celularCtrl && celularCtrl.dirty && formValue.celular !== this.cliente.celular) {
+        actualizado['celular'] = formValue.celular;
+      }
+
+      const tipoChanged = tipoPagoCtrl && formValue.tipoPago !== (this.cliente.tipoPago ?? '');
+      const fechaChanged = fechaPagoCtrl && formValue.fechaPago !== (this.cliente.fechaPago ?? '');
+      const mesesChanged = numeroMesesCtrl && numeroMesesCtrl.dirty;
+
+      if (tipoChanged || fechaChanged || mesesChanged) {
+        const numeroMeses = formValue.numeroMeses ?? 1;
+        const fechaVencimiento = this.clienteService.calcularVencimiento(formValue.fechaPago, formValue.tipoPago, numeroMeses);
+        actualizado['tipo_pago'] = formValue.tipoPago;
+        actualizado['fecha_inicio'] = formValue.fechaPago;
+        actualizado['fecha_fin'] = fechaVencimiento;
+      }
 
       if (this.faceDescriptor) {
         actualizado['embedding'] = this.faceDescriptor;
+      }
+
+      if (Object.keys(actualizado).length === 0) {
+        this.toastService.show('No se realizaron cambios', 'info');
+        this.isSubmitting = false;
+        return;
       }
 
       const clienteActualizado = await this.clienteService.actualizarClienteBackend(this.cliente.id, actualizado);
