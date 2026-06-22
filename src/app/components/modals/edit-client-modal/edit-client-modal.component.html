@@ -32,6 +32,16 @@
         </select>
       </div>
 
+      <div class="form-group" *ngIf="form.get('tipoPago')?.value === 'mensual'">
+        <label for="numero-meses">Número de meses</label>
+        <input
+          id="numero-meses"
+          type="number"
+          min="1"
+          formControlName="numeroMeses"
+          [disabled]="isSubmitting">
+      </div>
+
       <div class="form-group">
         <label>Fecha de pago</label>
         <input type="date" formControlName="fechaPago" [disabled]="isSubmitting">
@@ -48,9 +58,6 @@
           context="edit" 
           (fotoCapturada)="onFotoCapturada($event)">
         </app-camera-photo>
-        <div *ngIf="fotoUrl" class="photo-url-label">
-          URL de foto: <span>{{ fotoUrl }}</span>
-        </div>
       </div>
     </form>
   </div>

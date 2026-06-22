@@ -61,6 +61,7 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
       nombre: ['', [Validators.required, Validators.minLength(3)]],
       celular: ['', [Validators.required, Validators.minLength(7)]],
       tipoPago: ['diario', Validators.required],
+      numeroMeses: [1, [Validators.required, Validators.min(1)]],
       fechaPago: ['', Validators.required]
     });
   }
@@ -68,31 +69,60 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   private listenTipoPagoChanges(): void {
     const tipoPagoControl = this.form.get('tipoPago');
     const fechaPagoControl = this.form.get('fechaPago');
-    if (!tipoPagoControl || !fechaPagoControl) {
+    const numeroMesesControl = this.form.get('numeroMeses');
+    if (!tipoPagoControl || !fechaPagoControl || !numeroMesesControl) {
       return;
     }
 
     this.tipoPagoSubscription = tipoPagoControl.valueChanges.subscribe(() => {
       const today = this.formatDate(new Date());
       this.form.patchValue({ fechaPago: today }, { emitEvent: false });
+      this.updateNumeroMesesValidators();
       this.calcularFechaVencimiento();
     });
 
     fechaPagoControl.valueChanges.subscribe(() => {
       this.calcularFechaVencimiento();
     });
+
+    numeroMesesControl.valueChanges.subscribe(() => {
+      if (tipoPagoControl.value === 'mensual') {
+        this.calcularFechaVencimiento();
+      }
+    });
+
+    this.updateNumeroMesesValidators();
   }
 
   private formatDate(date: Date): string {
     return date.toISOString().split('T')[0];
   }
 
+  private updateNumeroMesesValidators(): void {
+    const tipoPago = this.form.get('tipoPago')?.value;
+    const numeroMesesControl = this.form.get('numeroMeses');
+    if (!numeroMesesControl) {
+      return;
+    }
+
+    if (tipoPago === 'mensual') {
+      numeroMesesControl.enable({ emitEvent: false });
+      numeroMesesControl.setValidators([Validators.required, Validators.min(1)]);
+    } else {
+      numeroMesesControl.setValue(1, { emitEvent: false });
+      numeroMesesControl.disable({ emitEvent: false });
+      numeroMesesControl.clearValidators();
+    }
+    numeroMesesControl.updateValueAndValidity({ emitEvent: false });
+  }
+
   private calcularFechaVencimiento(): void {
     const fechaPago = this.form.get('fechaPago')?.value;
     const tipoPago = this.form.get('tipoPago')?.value;
+    const numeroMeses = this.form.get('numeroMeses')?.value ?? 1;
 
     if (fechaPago && tipoPago) {
-      this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
+      this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago, numeroMeses);
     }
   }
 
@@ -108,7 +138,8 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
       const formValue = this.form.value;
       const fechaPago = formValue.fechaPago;
       const tipoPago = formValue.tipoPago;
-      const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
+      const numeroMeses = formValue.numeroMeses ?? 1;
+      const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago, numeroMeses);
 
       const actualizado: Record<string, any> = {
         nombre: formValue.nombre,
