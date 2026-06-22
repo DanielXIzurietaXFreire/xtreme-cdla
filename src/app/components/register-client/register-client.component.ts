@@ -57,6 +57,7 @@ export class RegisterClientComponent implements OnInit {
         Validators.pattern(/^09\d{8}$/)
       ]],
       tipoPago: ['diario', Validators.required],
+      numeroMeses: [1, [Validators.required, Validators.min(1)]],
       fechaPago: ['', Validators.required]
     });
   }
@@ -78,20 +79,48 @@ export class RegisterClientComponent implements OnInit {
   private listenTipoPagoChanges(): void {
     const tipoPagoControl = this.form.get('tipoPago');
     const fechaPagoControl = this.form.get('fechaPago');
+    const numeroMesesControl = this.form.get('numeroMeses');
     
-    if (!tipoPagoControl || !fechaPagoControl) {
+    if (!tipoPagoControl || !fechaPagoControl || !numeroMesesControl) {
       return;
     }
 
     tipoPagoControl.valueChanges.subscribe(() => {
       const today = this.clienteService.obtenerFechaActual();
       this.form.patchValue({ fechaPago: today }, { emitEvent: false });
+      this.updateNumeroMesesValidators();
       this.calcularFechaVencimiento();
     });
 
     fechaPagoControl.valueChanges.subscribe(() => {
       this.calcularFechaVencimiento();
     });
+
+    numeroMesesControl.valueChanges.subscribe(() => {
+      if (tipoPagoControl.value === 'mensual') {
+        this.calcularFechaVencimiento();
+      }
+    });
+
+    this.updateNumeroMesesValidators();
+  }
+
+  private updateNumeroMesesValidators(): void {
+    const tipoPago = this.form.get('tipoPago')?.value;
+    const numeroMesesControl = this.form.get('numeroMeses');
+    if (!numeroMesesControl) {
+      return;
+    }
+
+    if (tipoPago === 'mensual') {
+      numeroMesesControl.enable({ emitEvent: false });
+      numeroMesesControl.setValidators([Validators.required, Validators.min(1)]);
+    } else {
+      numeroMesesControl.setValue(1, { emitEvent: false });
+      numeroMesesControl.disable({ emitEvent: false });
+      numeroMesesControl.clearValidators();
+    }
+    numeroMesesControl.updateValueAndValidity({ emitEvent: false });
   }
 
   private calcularFechaVencimiento(): void {
@@ -99,7 +128,8 @@ export class RegisterClientComponent implements OnInit {
     const tipoPago = this.form.get('tipoPago')?.value;
     
     if (fechaPago && tipoPago) {
-      this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
+      const numeroMeses = this.form.get('numeroMeses')?.value ?? 1;
+      this.fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago, numeroMeses);
     }
   }
 
@@ -127,7 +157,8 @@ export class RegisterClientComponent implements OnInit {
       const formValue = this.form.value;
       const fechaPago = formValue.fechaPago;
       const tipoPago = formValue.tipoPago;
-      const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago);
+      const numeroMeses = formValue.numeroMeses ?? 1;
+      const fechaVencimiento = this.clienteService.calcularVencimiento(fechaPago, tipoPago, numeroMeses);
 
       const nuevoClienteBackend: Record<string, any> = {
         nombre: formValue.nombre,
@@ -218,6 +249,14 @@ export class RegisterClientComponent implements OnInit {
     if (controlName === 'celular') {
       if (control.errors['pattern']) {
         return 'El celular debe ser un número válido de 10 dígitos que comience con 09';
+      }
+    }
+    if (controlName === 'numeroMeses') {
+      if (control.errors['required']) {
+        return 'Debes ingresar la cantidad de meses';
+      }
+      if (control.errors['min']) {
+        return 'El número de meses debe ser al menos 1';
       }
     }
     return 'Por favor ingresa un valor válido';

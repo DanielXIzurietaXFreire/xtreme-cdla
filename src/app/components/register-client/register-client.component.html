@@ -43,10 +43,22 @@
         <select id="tipo-pago" formControlName="tipoPago">
           <option value="diario">Diario</option>
           <option value="mensual">Mensual</option>
-          <option value="trimestral">Trimestral</option>
-          <option value="semestral">Semestral</option>
-          <option value="anual">Anual</option>
         </select>
+      </div>
+    </div>
+
+    <div class="form-row" *ngIf="form.get('tipoPago')?.value === 'mensual'">
+      <div class="form-group">
+        <label for="numero-meses">Número de meses</label>
+        <input
+          type="number"
+          id="numero-meses"
+          min="1"
+          inputmode="numeric"
+          formControlName="numeroMeses">
+        <div class="field-error" *ngIf="getFieldError('numeroMeses')">
+          {{ getFieldError('numeroMeses') }}
+        </div>
       </div>
     </div>
 

@@ -357,14 +357,14 @@ export class ClienteService {
     return new Date().toISOString().split('T')[0];
   }
 
-  calcularVencimiento(fechaPago: string, tipoPago: string): string {
+  calcularVencimiento(fechaPago: string, tipoPago: string, numeroMeses: number = 1): string {
     const fecha = new Date(fechaPago);
     switch (tipoPago.toLowerCase()) {
       case 'diario':
         fecha.setDate(fecha.getDate() + 1);
         break;
       case 'mensual':
-        fecha.setDate(fecha.getDate() + 30);
+        fecha.setDate(fecha.getDate() + numeroMeses * 30);
         break;
       case 'trimestral':
         fecha.setDate(fecha.getDate() + 90);
