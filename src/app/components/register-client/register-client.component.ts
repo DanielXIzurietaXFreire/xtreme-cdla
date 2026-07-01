@@ -178,13 +178,25 @@ export class RegisterClientComponent implements OnInit {
             if (Array.isArray(descriptor) && descriptor.length === 128) {
               nuevoClienteBackend['descriptor'] = descriptor;
             } else {
-              console.warn('No se generó descriptor válido al crear cliente');
+              console.warn('Descriptor inválido al crear cliente: debe tener 128 dimensiones.', Array.isArray(descriptor) ? descriptor.length : typeof descriptor);
+              this.toastService.show('Error procesando la foto: descriptor facial inválido.', 'error');
+              this.isSubmitting = false;
+              this.enableFormControls();
+              return;
             }
           } else {
             console.warn('Modelos de reconocimiento no listos al crear cliente');
+            this.toastService.show('Los modelos de reconocimiento facial no se cargaron. Intenta nuevamente.', 'error');
+            this.isSubmitting = false;
+            this.enableFormControls();
+            return;
           }
         } catch (err) {
           console.error('Error generando descriptor para cliente:', err);
+          this.toastService.show('Error procesando la foto. Intenta nuevamente.', 'error');
+          this.isSubmitting = false;
+          this.enableFormControls();
+          return;
         }
       }
 

@@ -26,6 +26,7 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   fotoUrl: string = '';
   fechaVencimiento: string = '';
   faceDescriptor: number[] | null = null;
+  fotoModificada: boolean = false;
   private tipoPagoSubscription: Subscription | null = null;
 
   constructor(
@@ -140,6 +141,12 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Validar que si se capturó foto, tenga descriptor válido
+    if (this.fotoModificada && !this.faceDescriptor) {
+      this.toastService.show('Error: la foto capturada no tiene descriptor facial válido. Intenta nuevamente.', 'error');
+      return;
+    }
+
     this.isSubmitting = true;
     try {
       const formValue = this.form.value;
@@ -170,8 +177,9 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
         actualizado['fecha_fin'] = fechaVencimiento;
       }
 
-      if (this.faceDescriptor) {
-        actualizado['embedding'] = this.faceDescriptor;
+      // Enviar descriptor solo si fue capturado y es válido
+      if (this.fotoModificada && this.faceDescriptor) {
+        actualizado['descriptor'] = this.faceDescriptor;
       }
 
       if (Object.keys(actualizado).length === 0) {
@@ -198,7 +206,27 @@ export class EditClientModalComponent implements OnInit, OnDestroy {
   async onFotoCapturada(foto: string): Promise<void> {
     this.fotoCapturada = foto;
     this.fotoUrl = '';
-    this.faceDescriptor = await this.faceRecognitionService.imageToDescriptor(foto);
+    this.fotoModificada = true;
+    
+    try {
+      const descriptor = await this.faceRecognitionService.imageToDescriptor(foto);
+      
+      if (!Array.isArray(descriptor) || descriptor.length !== 128) {
+        console.error('Descriptor inválido: debe tener 128 dimensiones.', Array.isArray(descriptor) ? descriptor.length : typeof descriptor);
+        this.faceDescriptor = null;
+        this.toastService.show('Error procesando la foto: descriptor facial inválido. Intenta nuevamente.', 'error');
+        this.fotoModificada = false;
+        return;
+      }
+      
+      this.faceDescriptor = descriptor;
+      this.toastService.show('Foto capturada correctamente ✓', 'success');
+    } catch (error) {
+      console.error('Error generando descriptor facial:', error);
+      this.faceDescriptor = null;
+      this.toastService.show('Error al procesar la foto. Intenta nuevamente.', 'error');
+      this.fotoModificada = false;
+    }
   }
 
   onClose(): void {
